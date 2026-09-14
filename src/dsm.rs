@@ -22,12 +22,12 @@ pub async fn run(
 ) -> Result<()> {
     let issue_type = client.issue_type(owner, repo, team_slug).await?;
     let issues = client.open_issues(owner, repo, &issue_type).await?;
-    let plan = plan_issues(issues, title);
+    let members = client.team_members(owner, team_slug).await?;
+    let assignable = client.assignable_users(owner, repo).await?;
+    let assignees = select_assignees(&members, &assignable);
+    let plan = plan_issues(issues, title, &assignees);
 
     if plan.create {
-        let members = client.team_members(owner, team_slug).await?;
-        let assignable = client.assignable_users(owner, repo).await?;
-        let assignees = select_assignees(&members, &assignable);
         let body = build_body(template, &members);
 
         client
@@ -66,7 +66,7 @@ fn select_assignees(members: &[User], assignable: &[User]) -> Vec<String> {
         .collect()
 }
 
-fn plan_issues(issues: Vec<OpenIssue>, current_title: &str) -> Plan {
+fn plan_issues(issues: Vec<OpenIssue>, current_title: &str, assignees: &[String]) -> Plan {
     let mut create = true;
     let mut close = Vec::new();
 
@@ -74,7 +74,7 @@ fn plan_issues(issues: Vec<OpenIssue>, current_title: &str) -> Plan {
         .into_iter()
         .filter(|issue| issue.title.starts_with(DSM_TITLE_PREFIX))
     {
-        if issue.title == current_title && create {
+        if issue.title == current_title && issue.has_all_assignees(assignees) && create {
             create = false;
         } else {
             close.push(issue.number);
@@ -102,23 +102,27 @@ mod tests {
             OpenIssue {
                 number: 1,
                 title: "[DSM] Sunday".to_string(),
+                assignees: Vec::new(),
             },
             OpenIssue {
                 number: 2,
                 title: "[DSM] Monday".to_string(),
+                assignees: vec!["member".to_string()],
             },
             OpenIssue {
                 number: 3,
                 title: "[DSM] Monday".to_string(),
+                assignees: vec!["member".to_string()],
             },
             OpenIssue {
                 number: 4,
                 title: "Unrelated task".to_string(),
+                assignees: Vec::new(),
             },
         ];
 
         assert_eq!(
-            plan_issues(issues, "[DSM] Monday"),
+            plan_issues(issues, "[DSM] Monday", &["member".to_string()]),
             Plan {
                 create: false,
                 close: vec![1, 3],
@@ -131,13 +135,31 @@ mod tests {
         let issues = vec![OpenIssue {
             number: 1,
             title: "[DSM] Sunday".to_string(),
+            assignees: Vec::new(),
         }];
 
         assert_eq!(
-            plan_issues(issues, "[DSM] Monday"),
+            plan_issues(issues, "[DSM] Monday", &[]),
             Plan {
                 create: true,
                 close: vec![1],
+            }
+        );
+    }
+
+    #[test]
+    fn replaces_a_current_issue_that_is_missing_an_expected_assignee() {
+        let issues = vec![OpenIssue {
+            number: 2,
+            title: "[DSM] Monday".to_string(),
+            assignees: Vec::new(),
+        }];
+
+        assert_eq!(
+            plan_issues(issues, "[DSM] Monday", &["member".to_string()]),
+            Plan {
+                create: true,
+                close: vec![2],
             }
         );
     }
@@ -214,9 +236,10 @@ mod tests {
             MockServer::response("200 OK", r#"[{"login":"member","node_id":"node-1"}]"#, &[]),
             MockServer::response(
                 "201 Created",
-                r#"{"number":2,"title":"[DSM] Monday","type":null,"assignees":[]}"#,
+                r#"{"number":2,"title":"[DSM] Monday","type":{"name":"DSM"},"assignees":[]}"#,
                 &[],
             ),
+            MockServer::response("200 OK", "{}", &[]),
         ]);
         let client = GitHubClient::with_api_root("test-secret", server.api_root.clone()).unwrap();
 
@@ -227,11 +250,12 @@ mod tests {
 
         assert_eq!(
             error.to_string(),
-            "GitHub did not apply the requested issue type"
+            "GitHub did not apply all requested assignees"
         );
-        assert_eq!(requests.len(), 5);
-        assert!(requests
+        assert_eq!(requests.len(), 6);
+        assert!(requests[5].starts_with("PATCH /repos/org/repo/issues/2 HTTP/1.1"));
+        assert!(!requests
             .iter()
-            .all(|request| !request.starts_with("PATCH ")));
+            .any(|request| request.starts_with("PATCH /repos/org/repo/issues/1 HTTP/1.1")));
     }
 }

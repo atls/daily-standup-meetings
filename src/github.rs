@@ -188,9 +188,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn rejects_a_create_response_that_dropped_type_or_assignees() {
-        let body = r#"{"number":2,"title":"[DSM] Monday","type":null,"assignees":[]}"#;
-        let server = MockServer::start(vec![MockServer::response("201 Created", body, &[])]);
+    async fn closes_a_created_issue_that_dropped_an_assignee() {
+        let body = r#"{"number":2,"title":"[DSM] Monday","type":{"name":"DSM"},"assignees":[]}"#;
+        let server = MockServer::start(vec![
+            MockServer::response("201 Created", body, &[]),
+            MockServer::response("200 OK", "{}", &[]),
+        ]);
         let client = GitHubClient::with_api_root("test-secret", server.api_root.clone()).unwrap();
 
         let error = client
@@ -208,11 +211,12 @@ mod tests {
 
         assert_eq!(
             error.to_string(),
-            "GitHub did not apply the requested issue type"
+            "GitHub did not apply all requested assignees"
         );
         assert!(requests[0].starts_with("POST /repos/org/repo/issues HTTP/1.1"));
         assert!(requests[0].contains("\"type\":\"DSM\""));
         assert!(requests[0].contains("\"assignees\":[\"member\"]"));
+        assert!(requests[1].starts_with("PATCH /repos/org/repo/issues/2 HTTP/1.1"));
     }
 
     #[tokio::test]
@@ -237,6 +241,17 @@ mod tests {
 pub struct OpenIssue {
     pub number: u64,
     pub title: String,
+    pub assignees: Vec<String>,
+}
+
+impl OpenIssue {
+    pub fn has_all_assignees(&self, expected: &[String]) -> bool {
+        expected.iter().all(|login| {
+            self.assignees
+                .iter()
+                .any(|actual| actual.eq_ignore_ascii_case(login))
+        })
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -357,6 +372,11 @@ impl GitHubClient {
             .map(|issue| OpenIssue {
                 number: issue.number,
                 title: issue.title,
+                assignees: issue
+                    .assignees
+                    .into_iter()
+                    .map(|assignee| assignee.login)
+                    .collect(),
             })
             .collect())
     }
@@ -384,11 +404,25 @@ impl GitHubClient {
             .await
             .context("GitHub create issue response was not valid JSON")?;
 
-        self.verify_created_issue(&created, title, issue_type, assignees)?;
+        if let Err(error) = self.verify_created_issue(&created, title, issue_type, assignees) {
+            if let Err(cleanup_error) = self.close_issue(owner, repo, created.number).await {
+                bail!(
+                    "{error}; failed to close invalid issue #{}: {cleanup_error}",
+                    created.number
+                );
+            }
+
+            return Err(error);
+        }
 
         Ok(OpenIssue {
             number: created.number,
             title: created.title,
+            assignees: created
+                .assignees
+                .into_iter()
+                .map(|assignee| assignee.login)
+                .collect(),
         })
     }
 
