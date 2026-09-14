@@ -4,7 +4,7 @@ pub mod get_team_members {
     #![allow(dead_code)]
     use std::result::Result;
     pub const OPERATION_NAME: &str = "GetTeamMembers";
-    pub const QUERY : & str = "query GetTeamMembers($id: ID!) {\n    node(id: $id) {\n        __typename\n        ... on Team {\n            members {\n                nodes {\n                    id,\n                    login\n                }\n            }\n        }\n    }\n}" ;
+    pub const QUERY : & str = "query GetTeamMembers($id: ID!, $cursor: String) {\n    node(id: $id) {\n        __typename\n        ... on Team {\n            members(first: 100, after: $cursor) {\n                pageInfo {\n                    hasNextPage\n                    endCursor\n                }\n                nodes {\n                    id\n                    login\n                }\n            }\n        }\n    }\n}\n" ;
     use super::*;
     use serde::{Deserialize, Serialize};
     #[allow(dead_code)]
@@ -18,6 +18,7 @@ pub mod get_team_members {
     #[derive(Serialize)]
     pub struct Variables {
         pub id: ID,
+        pub cursor: Option<String>,
     }
     impl Variables {}
     #[derive(Deserialize)]
@@ -287,7 +288,16 @@ pub mod get_team_members {
     }
     #[derive(Deserialize)]
     pub struct GetTeamMembersNodeOnTeamMembers {
+        #[serde(rename = "pageInfo")]
+        pub page_info: GetTeamMembersNodeOnTeamMembersPageInfo,
         pub nodes: Option<Vec<Option<GetTeamMembersNodeOnTeamMembersNodes>>>,
+    }
+    #[derive(Deserialize)]
+    pub struct GetTeamMembersNodeOnTeamMembersPageInfo {
+        #[serde(rename = "hasNextPage")]
+        pub has_next_page: Boolean,
+        #[serde(rename = "endCursor")]
+        pub end_cursor: Option<String>,
     }
     #[derive(Deserialize)]
     pub struct GetTeamMembersNodeOnTeamMembersNodes {

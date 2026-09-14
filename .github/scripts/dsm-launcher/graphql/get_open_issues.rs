@@ -4,7 +4,7 @@ pub mod get_open_issues {
     #![allow(dead_code)]
     use std::result::Result;
     pub const OPERATION_NAME: &str = "GetOpenIssues";
-    pub const QUERY : & str = "query GetOpenIssues($id: ID!) {\n  node(id: $id) {\n    __typename\n    ... on Repository {\n      issues(first: 100, states: OPEN) {\n        nodes {\n          id\n          number\n          title\n        }\n      }\n    }\n  }\n}" ;
+    pub const QUERY : & str = "query GetOpenIssues($id: ID!) {\n  node(id: $id) {\n    __typename\n    ... on Repository {\n      issues(first: 100, states: OPEN) {\n        nodes {\n          id\n          number\n          title\n          issueType {\n            name\n          }\n        }\n      }\n    }\n  }\n}\n" ;
     use super::*;
     use serde::{Deserialize, Serialize};
     #[allow(dead_code)]
@@ -294,6 +294,12 @@ pub mod get_open_issues {
         pub id: ID,
         pub number: Int,
         pub title: String,
+        #[serde(rename = "issueType")]
+        pub issue_type: Option<GetOpenIssuesNodeOnRepositoryIssuesNodesIssueType>,
+    }
+    #[derive(Deserialize)]
+    pub struct GetOpenIssuesNodeOnRepositoryIssuesNodesIssueType {
+        pub name: String,
     }
 }
 impl graphql_client::GraphQLQuery for GetOpenIssues {

@@ -65,6 +65,7 @@ async fn main() -> Result<()> {
         close_issue,
         &config.repo_owner,
         &config.repo_name,
+        &config.team_slug,
     )
     .await?;
     create_issue(

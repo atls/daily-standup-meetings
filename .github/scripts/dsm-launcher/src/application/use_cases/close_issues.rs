@@ -13,10 +13,11 @@ pub async fn close_issues<R: OrgRepository, I: IssueRepository>(
     close_issue: CloseIssueCommand<I>,
     owner: &str,
     repo_name: &str,
+    issue_type: &str,
 ) -> Result<()> {
     let org_id = get_org.execute(owner).await?;
     let repo_id = get_repo.execute(&org_id, &repo_name).await?;
-    let issues = get_issues.execute(&repo_id).await?;
+    let issues = get_issues.execute(&repo_id, issue_type).await?;
 
     for issue in issues.iter() {
         close_issue.execute(issue).await?;

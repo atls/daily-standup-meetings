@@ -1,10 +1,14 @@
-query GetTeamMembers($id: ID!) {
+query GetTeamMembers($id: ID!, $cursor: String) {
     node(id: $id) {
         __typename
         ... on Team {
-            members {
+            members(first: 100, after: $cursor) {
+                pageInfo {
+                    hasNextPage
+                    endCursor
+                }
                 nodes {
-                    id,
+                    id
                     login
                 }
             }

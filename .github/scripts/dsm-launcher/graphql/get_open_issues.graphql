@@ -7,6 +7,9 @@ query GetOpenIssues($id: ID!) {
           id
           number
           title
+          issueType {
+            name
+          }
         }
       }
     }

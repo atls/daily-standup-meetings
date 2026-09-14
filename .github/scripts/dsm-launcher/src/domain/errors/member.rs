@@ -7,4 +7,7 @@ pub enum MemberError {
 
     #[error("No team members were found")]
     TeamMembersWereNotFound,
+
+    #[error("Team members response requested another page without an end cursor")]
+    TeamMembersCursorNotFound,
 }

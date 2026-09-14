@@ -23,9 +23,11 @@ use crate::domain::errors::{issue::IssueError, issue_types::IssueTypesError, rep
 
 use super::{errors::GitHubAdapterError, GitHubAdapter};
 
+const DSM_TITLE_PREFIX: &str = "[DSM] ";
+
 #[async_trait]
 impl IssueRepository for GitHubAdapter {
-    async fn get_issues(&self, repo_id: &RepoId) -> Result<Vec<IssueId>> {
+    async fn get_issues(&self, repo_id: &RepoId, issue_type: &str) -> Result<Vec<IssueId>> {
         let vars = GetOpenIssuesVars {
             id: repo_id.to_string(),
         };
@@ -50,7 +52,19 @@ impl IssueRepository for GitHubAdapter {
         Ok(issues
             .ok_or(IssueError::IssuesWereNotFound)?
             .into_iter()
-            .filter_map(|x| x.map(|issue| IssueId::new(issue.id)))
+            .filter_map(|issue| {
+                issue.filter(|issue| {
+                    is_dsm_issue(
+                        &issue.title,
+                        issue
+                            .issue_type
+                            .as_ref()
+                            .map(|issue_type| issue_type.name.as_str()),
+                        issue_type,
+                    )
+                })
+            })
+            .map(|issue| IssueId::new(issue.id))
             .collect::<Vec<IssueId>>())
     }
 
@@ -122,5 +136,27 @@ impl IssueRepository for GitHubAdapter {
         }
 
         Ok(())
+    }
+}
+
+fn is_dsm_issue(title: &str, actual_issue_type: Option<&str>, expected_issue_type: &str) -> bool {
+    title.starts_with(DSM_TITLE_PREFIX)
+        && actual_issue_type.is_some_and(|issue_type| {
+            issue_type
+                .trim()
+                .eq_ignore_ascii_case(expected_issue_type.trim())
+        })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_dsm_issue;
+
+    #[test]
+    fn identifies_dsm_issues_by_title_and_type() {
+        assert!(is_dsm_issue("[DSM] Mon Sep 14 2026", Some("DSM"), "dsm"));
+        assert!(!is_dsm_issue("Customer report", Some("DSM"), "DSM"));
+        assert!(!is_dsm_issue("[DSM] Customer report", Some("Bug"), "DSM"));
+        assert!(!is_dsm_issue("[DSM] Customer report", None, "DSM"));
     }
 }

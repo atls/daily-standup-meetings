@@ -27,42 +27,48 @@ use super::{errors::GitHubAdapterError, GitHubAdapter};
 #[async_trait]
 impl MemberRepository for GitHubAdapter {
     async fn get_team_members(&self, team_id: &TeamId) -> Result<Vec<Member>> {
-        let variables = GetTeamMembersVars {
-            id: team_id.to_string(),
-        };
+        let mut cursor = None;
+        let mut members = Vec::new();
 
-        let response = self.client.execute::<GetTeamMembers>(variables).await?;
+        loop {
+            let variables = GetTeamMembersVars {
+                id: team_id.to_string(),
+                cursor: cursor.clone(),
+            };
 
-        if let Some(errors) = response.errors {
-            return Err(GitHubAdapterError::GraphQL(errors).into());
+            let response = self.client.execute::<GetTeamMembers>(variables).await?;
+
+            if let Some(errors) = response.errors {
+                return Err(GitHubAdapterError::GraphQL(errors).into());
+            }
+
+            let response_data = response.data.ok_or(MemberError::EmptyTeamMembersResponse)?;
+            let node = response_data.node.ok_or(TeamError::TeamNodeNotFound)?;
+            let team = match node {
+                GetTeamMembersNode::Team(team) => team,
+                _ => return Err(GitHubAdapterError::UnexpectedNodeType.into()),
+            };
+
+            members.extend(
+                team.members
+                    .nodes
+                    .ok_or(MemberError::TeamMembersWereNotFound)?
+                    .into_iter()
+                    .flatten()
+                    .map(|member| Member::new(MemberId::new(member.id), member.login)),
+            );
+
+            cursor = next_cursor(
+                team.members.page_info.has_next_page,
+                team.members.page_info.end_cursor,
+            )?;
+
+            if cursor.is_none() {
+                break;
+            }
         }
 
-        let response_data = response.data.ok_or(MemberError::EmptyTeamMembersResponse)?;
-        let node = response_data.node.ok_or(TeamError::TeamNodeNotFound)?;
-        let team = match node {
-            GetTeamMembersNode::Team(team) => team,
-            _ => {
-                return Err(GitHubAdapterError::UnexpectedNodeType.into());
-            }
-        };
-        let members = team
-            .members
-            .nodes
-            .ok_or(MemberError::TeamMembersWereNotFound)?;
-
-        Ok(members
-            .into_iter()
-            .filter_map(|x| {
-                if let Some(member) = x {
-                    let id = MemberId::new(member.id);
-                    let login = member.login;
-
-                    return Some(Member::new(id, login));
-                }
-
-                None
-            })
-            .collect::<Vec<Member>>())
+        Ok(members)
     }
 
     async fn get_team(&self, org_id: &OrgId, team_slug: &str) -> Result<TeamId> {
@@ -90,5 +96,41 @@ impl MemberRepository for GitHubAdapter {
         let team = org.team.ok_or(TeamError::TeamNotFound)?;
 
         Ok(TeamId::new(team.id))
+    }
+}
+
+fn next_cursor(has_next_page: bool, end_cursor: Option<String>) -> Result<Option<String>> {
+    if has_next_page {
+        return end_cursor
+            .map(Some)
+            .ok_or_else(|| MemberError::TeamMembersCursorNotFound.into());
+    }
+
+    Ok(None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::next_cursor;
+
+    #[test]
+    fn advances_when_another_page_exists() {
+        assert_eq!(
+            next_cursor(true, Some("cursor".to_string())).unwrap(),
+            Some("cursor".to_string())
+        );
+    }
+
+    #[test]
+    fn stops_after_the_last_page() {
+        assert_eq!(
+            next_cursor(false, Some("ignored".to_string())).unwrap(),
+            None
+        );
+    }
+
+    #[test]
+    fn rejects_a_missing_cursor_for_the_next_page() {
+        assert!(next_cursor(true, None).is_err());
     }
 }
