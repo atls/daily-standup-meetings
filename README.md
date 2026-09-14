@@ -85,11 +85,6 @@ performed by this change.
 
 ## DSM template
 
-The Action includes this English template by default. Consumers only need to
-set `template-path` when they want to replace it. A custom repository template
-also requires `actions/checkout` before this Action runs.
-
-#### What did you work on yesterday?
-#### What will you work on today? Include issue references.
-#### Is anything blocking you? (Use this section only when you are blocked.)
-#### Do you need to be away from work for personal reasons during the day? (Use this section only when applicable.)
+The Action includes [`templates/dsm.md`](templates/dsm.md) by default. Consumers
+only need to set `template-path` when they want to replace it. A custom
+repository template also requires `actions/checkout` before this Action runs.
