@@ -1,10 +1,10 @@
 name: Daily Standup Meetings
-description: Create a daily standup issue for the members of a GitHub organization team
+description: Create a daily standup issue for members of GitHub organization teams
 author: TorinAsakura
 
 inputs:
   github-token:
-    description: GitHub App installation token used to read the team and manage issues
+    description: GitHub App installation token used to read teams and manage issues
     required: true
   team-slugs:
     description: Comma-separated or multiline slugs of GitHub organization teams included in the standup

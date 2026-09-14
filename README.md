@@ -59,7 +59,7 @@ separately downloaded release asset.
 
 | Input | Description |
 | --- | --- |
-| `github-token` | GitHub App installation token used to read the team and create or close DSM issues. |
+| `github-token` | GitHub App installation token used to read teams and create or close DSM issues. |
 | `team-slugs` | One or more organization team slugs, separated by commas or newlines. Duplicate members are removed in team order before the first 10 assignable members are selected. |
 | `issue-type` | Repository issue type assigned to each standup issue. |
 | `template-path` | Optional absolute path or path relative to `GITHUB_WORKSPACE` containing a custom issue body. The built-in English template is used when omitted. |
