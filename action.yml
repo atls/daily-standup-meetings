@@ -10,7 +10,7 @@ inputs:
     description: Slug of the GitHub organization team assigned to the standup issue
     required: true
   template-path:
-    description: Optional path to a custom standup issue body template in the consumer repository
+    description: Optional path to a custom standup issue body template; uses the bundled English template when omitted
     required: false
   timezone:
     description: IANA timezone used for the date in the standup issue title
