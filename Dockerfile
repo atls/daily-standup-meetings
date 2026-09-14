@@ -1,14 +1,13 @@
-FROM rust:1.90-bookworm AS build
+FROM rust:1.98.1-trixie AS build
 
 WORKDIR /usr/src/daily-standup-meetings
 
 COPY Cargo.toml Cargo.lock ./
-COPY graphql ./graphql
 COPY src ./src
 
 RUN cargo build --release --locked
 
-FROM debian:12-slim
+FROM debian:13-slim
 
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends ca-certificates \

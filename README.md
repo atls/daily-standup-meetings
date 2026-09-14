@@ -68,7 +68,7 @@ separately downloaded release asset.
 Configure the GitHub App with the following minimum permissions:
 
 - Repository permissions: `Metadata: read` and `Issues: read and write`.
-- Organization permissions: `Members: read` and `Issue Types: read`.
+- Organization permissions: `Members: read`.
 
 Install the App on the consumer organization and grant it access only to the
 repositories where DSM may manage issues. Keep the App ID in repository
