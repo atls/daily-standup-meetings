@@ -4,7 +4,6 @@ use chrono_tz::Tz;
 use std::{env, path::PathBuf};
 
 const DEFAULT_TEAM_SLUG: &str = "DSM";
-const DEFAULT_TEMPLATE_PATH: &str = "./.github/ISSUE_TEMPLATE/dsm.md";
 const DEFAULT_TIMEZONE: &str = "UTC";
 const TITLE_DATE_FORMAT: &str = "%a %b %d %Y";
 
@@ -13,7 +12,7 @@ pub struct Config {
     pub repo_owner: String,
     pub repo_name: String,
     pub team_slug: String,
-    pub template_path: PathBuf,
+    pub template_path: Option<PathBuf>,
     timezone: Tz,
 }
 
@@ -45,13 +44,16 @@ impl Config {
             repo_owner: lookup("GITHUB_REPO_OWNER").context("GITHUB_REPO_OWNER is required")?,
             repo_name: lookup("GITHUB_REPO_NAME").context("GITHUB_REPO_NAME is required")?,
             team_slug: lookup("DSM_TEAM_SLUG").unwrap_or_else(|| DEFAULT_TEAM_SLUG.to_string()),
-            template_path: Self::template_path(
-                lookup("DSM_TEMPLATE_PATH")
-                    .unwrap_or_else(|| DEFAULT_TEMPLATE_PATH.to_string())
-                    .into(),
-                lookup("DSM_HOST_WORKSPACE").map(PathBuf::from),
-                lookup("GITHUB_WORKSPACE").map(PathBuf::from),
-            ),
+            template_path: lookup("DSM_TEMPLATE_PATH")
+                .filter(|path| !path.trim().is_empty())
+                .map(PathBuf::from)
+                .map(|path| {
+                    Self::template_path(
+                        path,
+                        lookup("DSM_HOST_WORKSPACE").map(PathBuf::from),
+                        lookup("GITHUB_WORKSPACE").map(PathBuf::from),
+                    )
+                }),
             timezone,
         })
     }
@@ -98,7 +100,10 @@ mod tests {
         let now = Utc.with_ymd_and_hms(2026, 9, 10, 21, 30, 0).unwrap();
 
         assert_eq!(config.team_slug, "platform");
-        assert_eq!(config.template_path.to_str(), Some("templates/standup.md"));
+        assert_eq!(
+            config.template_path.as_deref(),
+            Some(std::path::Path::new("templates/standup.md"))
+        );
         assert_eq!(config.title(now), "[DSM] Fri Sep 11 2026");
     }
 
@@ -118,24 +123,33 @@ mod tests {
         let config = Config::from_lookup(|name| values.get(name).cloned()).unwrap();
 
         assert_eq!(
-            config.template_path.to_str(),
-            Some("/github/workspace/.github/ISSUE_TEMPLATE/dsm.md")
+            config.template_path.as_deref(),
+            Some(std::path::Path::new(
+                "/github/workspace/.github/ISSUE_TEMPLATE/dsm.md"
+            ))
         );
     }
 
     #[test]
-    fn keeps_the_existing_launcher_defaults() {
+    fn uses_the_built_in_template_when_no_override_is_set() {
         let values = required_values();
 
         let config = Config::from_lookup(|name| values.get(name).cloned()).unwrap();
         let now = Utc.with_ymd_and_hms(2026, 9, 10, 21, 30, 0).unwrap();
 
         assert_eq!(config.team_slug, "DSM");
-        assert_eq!(
-            config.template_path.to_str(),
-            Some("./.github/ISSUE_TEMPLATE/dsm.md")
-        );
+        assert_eq!(config.template_path, None);
         assert_eq!(config.title(now), "[DSM] Thu Sep 10 2026");
+    }
+
+    #[test]
+    fn uses_the_built_in_template_when_action_passes_an_empty_override() {
+        let mut values = required_values();
+        values.insert("DSM_TEMPLATE_PATH", String::new());
+
+        let config = Config::from_lookup(|name| values.get(name).cloned()).unwrap();
+
+        assert_eq!(config.template_path, None);
     }
 
     #[test]

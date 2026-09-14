@@ -5,8 +5,8 @@
 DSM creates a dated issue in the current repository, mentions every member of
 the selected GitHub organization team, and assigns the first 10 members allowed
 by GitHub's per-issue assignee limit. The issue body is read from a template in
-the consumer repository; the token and all organization-specific settings stay
-in that repository.
+the Action, with an optional consumer-provided override. The token and all
+organization-specific settings stay in the consumer repository.
 
 ## Usage
 
@@ -29,8 +29,6 @@ jobs:
   dsm:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7.0.1
-
       - uses: actions/create-github-app-token@v3.2.0
         id: app-token
         with:
@@ -43,7 +41,6 @@ jobs:
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           team-slug: engineering
-          template-path: .github/ISSUE_TEMPLATE/dsm.md
           timezone: Europe/Moscow
 ```
 
@@ -60,7 +57,7 @@ separately downloaded release asset.
 | --- | --- |
 | `github-token` | GitHub App installation token used to read the team and create or close DSM issues. |
 | `team-slug` | Slug of the organization team whose members are mentioned; the first 10 are assigned. The same value must exist as a repository issue type. |
-| `template-path` | Absolute path or path relative to `GITHUB_WORKSPACE` containing the issue body. |
+| `template-path` | Optional absolute path or path relative to `GITHUB_WORKSPACE` containing a custom issue body. The built-in English template is used when omitted. |
 | `timezone` | IANA timezone used to calculate the date in the issue title, for example `Europe/Moscow`. |
 
 ## GitHub App access
@@ -87,6 +84,10 @@ acceptance in a private consumer repository are post-merge steps and are not
 performed by this change.
 
 ## DSM template
+
+The Action includes this English template by default. Consumers only need to
+set `template-path` when they want to replace it. A custom repository template
+also requires `actions/checkout` before this Action runs.
 
 #### What did you work on yesterday?
 #### What will you work on today? Include issue references.

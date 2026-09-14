@@ -4,6 +4,7 @@ WORKDIR /usr/src/daily-standup-meetings
 
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
+COPY templates ./templates
 
 RUN cargo build --release --locked
 
