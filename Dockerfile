@@ -15,7 +15,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build \
-    /usr/src/daily-standup-meetings/target/release/daily-standup-meetings \
-    /usr/local/bin/daily-standup-meetings
+    /usr/src/daily-standup-meetings/target/release/atls-daily-standup-meetings \
+    /usr/local/bin/atls-daily-standup-meetings
 
-ENTRYPOINT ["/usr/local/bin/daily-standup-meetings"]
+ENTRYPOINT ["/usr/local/bin/atls-daily-standup-meetings"]

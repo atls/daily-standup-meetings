@@ -1,6 +1,6 @@
 name: Daily Standup Meetings
 description: Create a daily standup issue for the members of a GitHub organization team
-author: ATLS
+author: TorinAsakura
 
 inputs:
   github-token:

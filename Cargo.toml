@@ -1,7 +1,9 @@
 [package]
-name = "daily-standup-meetings"
+name = "atls-daily-standup-meetings"
 version = "1.0.0"
 edition = "2021"
+authors = ["TorinAsakura"]
+description = "GitHub Action that creates daily standup issues for organization teams"
 
 [dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

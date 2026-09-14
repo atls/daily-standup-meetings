@@ -29,7 +29,7 @@ jobs:
   dsm:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - uses: actions/create-github-app-token@v3.2.0
         id: app-token
@@ -39,7 +39,7 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
 
-      - uses: atls/daily-standup-meetings@v1
+      - uses: atls/daily-standup-meetings@v1.0.0
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           team-slug: engineering
@@ -88,7 +88,7 @@ performed by this change.
 
 ## DSM template
 
-#### Какие задачи выполнял вчера?
-#### Какие задачи будешь делать сегодня? Укажи #issues
-#### Что тебя блокирует? (Этот пункт используется когда тебя что-то блокирует)
-#### Есть ли личные дела из-за которых нужно отсутствовать на рабочем месте в течение рабочего дня? (Этот пункт используется когда дела есть)
+#### What did you work on yesterday?
+#### What will you work on today? Include issue references.
+#### Is anything blocking you? (Use this section only when you are blocked.)
+#### Do you need to be away from work for personal reasons during the day? (Use this section only when applicable.)
