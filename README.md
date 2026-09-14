@@ -18,6 +18,10 @@ on:
     - cron: "0 4 * * 1-5"
   workflow_dispatch:
 
+concurrency:
+  group: dsm-${{ github.repository }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -42,6 +46,9 @@ jobs:
           template-path: .github/ISSUE_TEMPLATE/dsm.md
           timezone: Europe/Moscow
 ```
+
+Use the same `dsm-${{ github.repository }}` concurrency group in every workflow
+that invokes the Action so overlapping runs cannot create duplicate issues.
 
 The Action supports Linux x86-64 runners with Bash, `tar`, and a current GitHub
 CLI containing `gh release verify-asset`. It downloads only the launcher asset

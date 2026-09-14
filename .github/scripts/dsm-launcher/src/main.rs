@@ -22,7 +22,10 @@ mod config;
 mod domain;
 mod infrastructure;
 
-use application::use_cases::{close_issues::close_issues, create_issue::create_issue};
+use application::use_cases::{
+    close_issues::{close_issues, get_issues_to_close},
+    create_issue::create_issue,
+};
 use infrastructure::github_graphql_client::GitHubGraphQLClient;
 
 #[tokio::main]
@@ -58,11 +61,10 @@ async fn main() -> Result<()> {
     };
     let get_team_members = GetTeamMembersQuery { repo: adapter };
 
-    let current_issue_exists = close_issues(
+    let (current_issue_exists, issues_to_close) = get_issues_to_close(
         get_org.clone(),
         get_repo.clone(),
         get_issues,
-        close_issue,
         &config.repo_owner,
         &config.repo_name,
         &config.team_slug,
@@ -87,6 +89,8 @@ async fn main() -> Result<()> {
         )
         .await?;
     }
+
+    close_issues(close_issue, &issues_to_close).await?;
 
     Ok(())
 }
