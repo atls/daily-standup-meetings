@@ -2,8 +2,9 @@
 
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Daily%20Standup%20Meetings-blue?logo=github)](https://github.com/marketplace/actions/daily-standup-meetings)
 
-DSM creates a dated issue in the current repository and assigns every member of
-the selected GitHub organization team. The issue body is read from a template in
+DSM creates a dated issue in the current repository, mentions every member of
+the selected GitHub organization team, and assigns the first 10 members allowed
+by GitHub's per-issue assignee limit. The issue body is read from a template in
 the consumer repository; the token and all organization-specific settings stay
 in that repository.
 
@@ -57,7 +58,7 @@ compatible releases; a full SHA runs only the Action source that was reviewed.
 | Input | Description |
 | --- | --- |
 | `github-token` | GitHub App installation token used to read the team and create or close DSM issues. |
-| `team-slug` | Slug of the organization team whose members are assigned. The same value must exist as a repository issue type. |
+| `team-slug` | Slug of the organization team whose members are mentioned; the first 10 are assigned. The same value must exist as a repository issue type. |
 | `template-path` | Absolute path or path relative to `GITHUB_WORKSPACE` containing the issue body. |
 | `timezone` | IANA timezone used to calculate the date in the issue title, for example `Europe/Moscow`. |
 
