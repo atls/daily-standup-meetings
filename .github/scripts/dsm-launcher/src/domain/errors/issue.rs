@@ -5,6 +5,9 @@ pub enum IssueError {
     #[error("No issues found in repository")]
     IssuesWereNotFound,
 
+    #[error("Issues response requested another page without an end cursor")]
+    IssuesCursorNotFound,
+
     #[error("Empty response from create_issue")]
     EmptyCreateIssueResponse,
 

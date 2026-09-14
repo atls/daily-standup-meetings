@@ -4,7 +4,7 @@ pub mod get_open_issues {
     #![allow(dead_code)]
     use std::result::Result;
     pub const OPERATION_NAME: &str = "GetOpenIssues";
-    pub const QUERY : & str = "query GetOpenIssues($id: ID!) {\n  node(id: $id) {\n    __typename\n    ... on Repository {\n      issues(first: 100, states: OPEN) {\n        nodes {\n          id\n          number\n          title\n          issueType {\n            name\n          }\n        }\n      }\n    }\n  }\n}\n" ;
+    pub const QUERY : & str = "query GetOpenIssues($id: ID!, $cursor: String) {\n  node(id: $id) {\n    __typename\n    ... on Repository {\n      issues(first: 100, after: $cursor, states: OPEN) {\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n        nodes {\n          id\n          number\n          title\n          issueType {\n            name\n          }\n        }\n      }\n    }\n  }\n}\n" ;
     use super::*;
     use serde::{Deserialize, Serialize};
     #[allow(dead_code)]
@@ -18,6 +18,7 @@ pub mod get_open_issues {
     #[derive(Serialize)]
     pub struct Variables {
         pub id: ID,
+        pub cursor: Option<String>,
     }
     impl Variables {}
     #[derive(Deserialize)]
@@ -287,7 +288,16 @@ pub mod get_open_issues {
     }
     #[derive(Deserialize)]
     pub struct GetOpenIssuesNodeOnRepositoryIssues {
+        #[serde(rename = "pageInfo")]
+        pub page_info: GetOpenIssuesNodeOnRepositoryIssuesPageInfo,
         pub nodes: Option<Vec<Option<GetOpenIssuesNodeOnRepositoryIssuesNodes>>>,
+    }
+    #[derive(Deserialize)]
+    pub struct GetOpenIssuesNodeOnRepositoryIssuesPageInfo {
+        #[serde(rename = "hasNextPage")]
+        pub has_next_page: Boolean,
+        #[serde(rename = "endCursor")]
+        pub end_cursor: Option<String>,
     }
     #[derive(Deserialize)]
     pub struct GetOpenIssuesNodeOnRepositoryIssuesNodes {

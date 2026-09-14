@@ -1,8 +1,12 @@
-query GetOpenIssues($id: ID!) {
+query GetOpenIssues($id: ID!, $cursor: String) {
   node(id: $id) {
     __typename
     ... on Repository {
-      issues(first: 100, states: OPEN) {
+      issues(first: 100, after: $cursor, states: OPEN) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
         nodes {
           id
           number
