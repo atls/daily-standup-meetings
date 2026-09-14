@@ -23,6 +23,7 @@ runs:
     GITHUB_TOKEN: ${{ inputs.github-token }}
     GITHUB_REPO_OWNER: ${{ github.repository_owner }}
     GITHUB_REPO_NAME: ${{ github.event.repository.name }}
+    DSM_HOST_WORKSPACE: ${{ github.workspace }}
     DSM_TEAM_SLUG: ${{ inputs.team-slug }}
     DSM_TEMPLATE_PATH: ${{ inputs.template-path }}
     DSM_TIMEZONE: ${{ inputs.timezone }}

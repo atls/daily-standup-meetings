@@ -26,6 +26,27 @@ fn loads_action_inputs_and_formats_the_title_in_the_requested_timezone() {
 }
 
 #[test]
+fn maps_a_runner_workspace_path_to_the_container_workspace() {
+    let mut values = required_values();
+    values.insert(
+        "DSM_TEMPLATE_PATH",
+        "/home/runner/work/service/service/.github/ISSUE_TEMPLATE/dsm.md".to_string(),
+    );
+    values.insert(
+        "DSM_HOST_WORKSPACE",
+        "/home/runner/work/service/service".to_string(),
+    );
+    values.insert("GITHUB_WORKSPACE", "/github/workspace".to_string());
+
+    let config = Config::from_lookup(|name| values.get(name).cloned()).unwrap();
+
+    assert_eq!(
+        config.template_path.to_str(),
+        Some("/github/workspace/.github/ISSUE_TEMPLATE/dsm.md")
+    );
+}
+
+#[test]
 fn keeps_the_existing_launcher_defaults() {
     let values = required_values();
 

@@ -45,11 +45,31 @@ impl Config {
             repo_owner: lookup("GITHUB_REPO_OWNER").context("GITHUB_REPO_OWNER is required")?,
             repo_name: lookup("GITHUB_REPO_NAME").context("GITHUB_REPO_NAME is required")?,
             team_slug: lookup("DSM_TEAM_SLUG").unwrap_or_else(|| DEFAULT_TEAM_SLUG.to_string()),
-            template_path: lookup("DSM_TEMPLATE_PATH")
-                .unwrap_or_else(|| DEFAULT_TEMPLATE_PATH.to_string())
-                .into(),
+            template_path: Self::template_path(
+                lookup("DSM_TEMPLATE_PATH")
+                    .unwrap_or_else(|| DEFAULT_TEMPLATE_PATH.to_string())
+                    .into(),
+                lookup("DSM_HOST_WORKSPACE").map(PathBuf::from),
+                lookup("GITHUB_WORKSPACE").map(PathBuf::from),
+            ),
             timezone,
         })
+    }
+
+    fn template_path(
+        path: PathBuf,
+        host_workspace: Option<PathBuf>,
+        container_workspace: Option<PathBuf>,
+    ) -> PathBuf {
+        if let (Some(host_workspace), Some(container_workspace)) =
+            (host_workspace, container_workspace)
+        {
+            if let Ok(relative_path) = path.strip_prefix(host_workspace) {
+                return container_workspace.join(relative_path);
+            }
+        }
+
+        path
     }
 }
 
