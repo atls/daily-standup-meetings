@@ -35,7 +35,8 @@ async fn main() -> Result<()> {
     let body = fs::read_to_string(&config.template_path)?;
     let title = config.title(Utc::now());
 
-    let client = GitHubGraphQLClient::new("dsm-launcher".to_string(), config.github_token)?;
+    let client =
+        GitHubGraphQLClient::new("daily-standup-meetings".to_string(), config.github_token)?;
 
     let adapter = Rc::new(GitHubAdapter::new(client.clone()));
 

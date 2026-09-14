@@ -29,9 +29,9 @@ jobs:
   dsm:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@v7
 
-      - uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349
+      - uses: actions/create-github-app-token@v3.2.0
         id: app-token
         with:
           app-id: ${{ vars.DSM_APP_ID }}
@@ -50,15 +50,9 @@ jobs:
 Use the same `dsm-${{ github.repository }}` concurrency group in every workflow
 that invokes the Action so overlapping runs cannot create duplicate issues.
 
-The Action supports Linux x86-64 runners with Bash, `tar`, and a current GitHub
-CLI containing `gh release verify-asset`. It downloads only the launcher asset
-attached to the immutable `v1.0.0` release and verifies GitHub's signed release
-attestation before execution. A missing attestation or digest mismatch fails the
-step before the launcher receives the token.
-
-For reviewed production workflows, replace `atls/daily-standup-meetings@v1` with the full 40
-character commit SHA for the release. The `v1` tag is the update channel for
-compatible releases; a full SHA runs only the Action source that was reviewed.
+The Action runs its Rust binary directly in a Docker container. Consumers need
+a Linux runner with Docker support and do not need Rust, Bash, GitHub CLI, or a
+separately downloaded release asset.
 
 ## Inputs
 
@@ -80,25 +74,17 @@ Install the App on the consumer organization and grant it access only to the
 repositories where DSM may manage issues. Keep the App ID in repository
 variables and its private key in repository secrets.
 
-If the organization restricts Actions, allow `atls/daily-standup-meetings@*` in the selected
-actions allowlist and enable the policy that requires actions to be pinned to a
-full-length commit SHA. The example uses `@v1` to show the Marketplace update
-channel; the production pin should be the reviewed release commit.
+If the organization restricts Actions, allow `atls/daily-standup-meetings@*` in
+the selected actions allowlist.
 
 ## Release boundary
 
-Before creating `v1.0.0`, enable immutable releases for this repository; the
-policy applies only to releases created after it is enabled. Create `v1.0.0` as
-a draft at the exact release commit, attach
-`dsm-launcher-x86_64-unknown-linux-musl.tar.gz`, and publish the draft only after
-all assets are present. Confirm that GitHub marks the release immutable and that
-both `gh release verify v1.0.0` and `gh release verify-asset v1.0.0 <asset>`
-succeed before creating the compatible `v1` tag at the same commit or publishing
-the Action to Marketplace.
+Create `v1.0.0` at the reviewed release commit, point the compatible `v1` tag at
+the same commit, and publish that release to GitHub Marketplace.
 
-License selection, immutable release and tag creation, Marketplace publication,
-and acceptance in a private consumer repository are post-merge steps and are
-not performed by this change.
+License selection, release and tag creation, Marketplace publication, and
+acceptance in a private consumer repository are post-merge steps and are not
+performed by this change.
 
 ## DSM template
 

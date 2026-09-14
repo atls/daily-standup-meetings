@@ -17,16 +17,15 @@ inputs:
     required: true
 
 runs:
-  using: composite
-  steps:
-    - name: Run DSM launcher
-      shell: bash
-      env:
-        DSM_GITHUB_TOKEN: ${{ inputs.github-token }}
-        DSM_TEAM_SLUG: ${{ inputs.team-slug }}
-        DSM_TEMPLATE_PATH: ${{ inputs.template-path }}
-        DSM_TIMEZONE: ${{ inputs.timezone }}
-      run: $GITHUB_ACTION_PATH/.github/scripts/run-action.sh
+  using: docker
+  image: Dockerfile
+  env:
+    GITHUB_TOKEN: ${{ inputs.github-token }}
+    GITHUB_REPO_OWNER: ${{ github.repository_owner }}
+    GITHUB_REPO_NAME: ${{ github.event.repository.name }}
+    DSM_TEAM_SLUG: ${{ inputs.team-slug }}
+    DSM_TEMPLATE_PATH: ${{ inputs.template-path }}
+    DSM_TIMEZONE: ${{ inputs.timezone }}
 
 branding:
   icon: calendar
