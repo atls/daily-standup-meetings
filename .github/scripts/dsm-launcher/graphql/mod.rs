@@ -1,5 +1,6 @@
 pub mod close_issue;
 pub mod create_issue;
+pub mod get_assignable_users;
 pub mod get_open_issues;
 pub mod get_team_members;
 pub mod get_team;

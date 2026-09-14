@@ -3,7 +3,7 @@ use async_trait::async_trait;
 
 use super::{
     issue::{Issue, IssueId, IssueType, OpenIssue},
-    member::Member,
+    member::{Member, MemberId},
     org::OrgId,
     repo::RepoId,
     team::TeamId,
@@ -21,6 +21,7 @@ pub trait IssueRepository {
 pub trait MemberRepository {
     async fn get_team(&self, org_id: &OrgId, team_slug: &str) -> Result<TeamId>;
     async fn get_team_members(&self, team_id: &TeamId) -> Result<Vec<Member>>;
+    async fn get_assignable_members(&self, repo_id: &RepoId) -> Result<Vec<MemberId>>;
 }
 
 #[async_trait]

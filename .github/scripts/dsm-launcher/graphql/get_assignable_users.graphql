@@ -1,0 +1,17 @@
+query GetAssignableUsers($id: ID!, $cursor: String) {
+  node(id: $id) {
+    __typename
+    ... on Repository {
+      assignableUsers(first: 100, after: $cursor) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          id
+          login
+        }
+      }
+    }
+  }
+}
