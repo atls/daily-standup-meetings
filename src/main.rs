@@ -24,7 +24,8 @@ async fn main() -> Result<()> {
         &client,
         &config.repo_owner,
         &config.repo_name,
-        &config.team_slug,
+        &config.team_slugs,
+        &config.issue_type,
         &title,
         &template,
     )

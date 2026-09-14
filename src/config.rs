@@ -1,9 +1,8 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
-use std::{env, path::PathBuf};
+use std::{collections::HashSet, env, path::PathBuf};
 
-const DEFAULT_TEAM_SLUG: &str = "DSM";
 const DEFAULT_TIMEZONE: &str = "UTC";
 const TITLE_DATE_FORMAT: &str = "%a %b %d %Y";
 
@@ -11,7 +10,8 @@ pub struct Config {
     pub github_token: String,
     pub repo_owner: String,
     pub repo_name: String,
-    pub team_slug: String,
+    pub team_slugs: Vec<String>,
+    pub issue_type: String,
     pub template_path: Option<PathBuf>,
     timezone: Tz,
 }
@@ -43,7 +43,13 @@ impl Config {
             github_token: lookup("GITHUB_TOKEN").context("GITHUB_TOKEN is required")?,
             repo_owner: lookup("GITHUB_REPO_OWNER").context("GITHUB_REPO_OWNER is required")?,
             repo_name: lookup("GITHUB_REPO_NAME").context("GITHUB_REPO_NAME is required")?,
-            team_slug: lookup("DSM_TEAM_SLUG").unwrap_or_else(|| DEFAULT_TEAM_SLUG.to_string()),
+            team_slugs: Self::team_slugs(
+                lookup("DSM_TEAM_SLUGS").context("DSM_TEAM_SLUGS is required")?,
+            )?,
+            issue_type: lookup("DSM_ISSUE_TYPE")
+                .map(|issue_type| issue_type.trim().to_string())
+                .filter(|issue_type| !issue_type.is_empty())
+                .context("DSM_ISSUE_TYPE is required")?,
             template_path: lookup("DSM_TEMPLATE_PATH")
                 .filter(|path| !path.trim().is_empty())
                 .map(PathBuf::from)
@@ -56,6 +62,23 @@ impl Config {
                 }),
             timezone,
         })
+    }
+
+    fn team_slugs(value: String) -> Result<Vec<String>> {
+        let mut seen = HashSet::new();
+        let team_slugs = value
+            .split([',', '\n'])
+            .map(str::trim)
+            .filter(|slug| !slug.is_empty())
+            .filter(|slug| seen.insert(slug.to_ascii_lowercase()))
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+
+        if team_slugs.is_empty() {
+            bail!("DSM_TEAM_SLUGS must contain at least one team slug");
+        }
+
+        Ok(team_slugs)
     }
 
     fn template_path(
@@ -86,20 +109,27 @@ mod tests {
             ("GITHUB_TOKEN", "token".to_string()),
             ("GITHUB_REPO_OWNER", "example".to_string()),
             ("GITHUB_REPO_NAME", "service".to_string()),
+            ("DSM_TEAM_SLUGS", "engineering".to_string()),
+            ("DSM_ISSUE_TYPE", "DSM".to_string()),
         ])
     }
 
     #[test]
     fn loads_action_inputs_and_formats_the_title_in_the_requested_timezone() {
         let mut values = required_values();
-        values.insert("DSM_TEAM_SLUG", "platform".to_string());
+        values.insert(
+            "DSM_TEAM_SLUGS",
+            "platform\nproduct,Platform\noperations".to_string(),
+        );
+        values.insert("DSM_ISSUE_TYPE", "Standup".to_string());
         values.insert("DSM_TEMPLATE_PATH", "templates/standup.md".to_string());
         values.insert("DSM_TIMEZONE", "Europe/Moscow".to_string());
 
         let config = Config::from_lookup(|name| values.get(name).cloned()).unwrap();
         let now = Utc.with_ymd_and_hms(2026, 9, 10, 21, 30, 0).unwrap();
 
-        assert_eq!(config.team_slug, "platform");
+        assert_eq!(config.team_slugs, vec!["platform", "product", "operations"]);
+        assert_eq!(config.issue_type, "Standup");
         assert_eq!(
             config.template_path.as_deref(),
             Some(std::path::Path::new("templates/standup.md"))
@@ -137,9 +167,37 @@ mod tests {
         let config = Config::from_lookup(|name| values.get(name).cloned()).unwrap();
         let now = Utc.with_ymd_and_hms(2026, 9, 10, 21, 30, 0).unwrap();
 
-        assert_eq!(config.team_slug, "DSM");
+        assert_eq!(config.team_slugs, vec!["engineering"]);
+        assert_eq!(config.issue_type, "DSM");
         assert_eq!(config.template_path, None);
         assert_eq!(config.title(now), "[DSM] Thu Sep 10 2026");
+    }
+
+    #[test]
+    fn rejects_an_empty_team_list_before_github_is_called() {
+        let mut values = required_values();
+        values.insert("DSM_TEAM_SLUGS", " , \n".to_string());
+
+        let error = Config::from_lookup(|name| values.get(name).cloned())
+            .err()
+            .unwrap();
+
+        assert_eq!(
+            error.to_string(),
+            "DSM_TEAM_SLUGS must contain at least one team slug"
+        );
+    }
+
+    #[test]
+    fn rejects_an_empty_issue_type_before_github_is_called() {
+        let mut values = required_values();
+        values.insert("DSM_ISSUE_TYPE", "  ".to_string());
+
+        let error = Config::from_lookup(|name| values.get(name).cloned())
+            .err()
+            .unwrap();
+
+        assert_eq!(error.to_string(), "DSM_ISSUE_TYPE is required");
     }
 
     #[test]

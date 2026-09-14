@@ -2,11 +2,12 @@
 
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Daily%20Standup%20Meetings-blue?logo=github)](https://github.com/marketplace/actions/daily-standup-meetings)
 
-DSM creates a dated issue in the current repository, mentions every member of
-the selected GitHub organization team, and assigns the first 10 members allowed
-by GitHub's per-issue assignee limit. The issue body is read from a template in
-the Action, with an optional consumer-provided override. The token and all
-organization-specific settings stay in the consumer repository.
+DSM creates a dated issue in the current repository, mentions every unique
+member of the selected GitHub organization teams, and assigns the first 10
+repository-assignable members allowed by GitHub's per-issue assignee limit. The
+issue body is read from a template in the Action, with an optional
+consumer-provided override. The token and all organization-specific settings
+stay in the consumer repository.
 
 ## Usage
 
@@ -40,7 +41,10 @@ jobs:
       - uses: atls/daily-standup-meetings@v1.0.0
         with:
           github-token: ${{ steps.app-token.outputs.token }}
-          team-slug: engineering
+          team-slugs: |
+            engineering
+            operations
+          issue-type: DSM
           timezone: Europe/Moscow
 ```
 
@@ -56,7 +60,8 @@ separately downloaded release asset.
 | Input | Description |
 | --- | --- |
 | `github-token` | GitHub App installation token used to read the team and create or close DSM issues. |
-| `team-slug` | Slug of the organization team whose members are mentioned; the first 10 are assigned. The same value must exist as a repository issue type. |
+| `team-slugs` | One or more organization team slugs, separated by commas or newlines. Duplicate members are removed in team order before the first 10 assignable members are selected. |
+| `issue-type` | Repository issue type assigned to each standup issue. |
 | `template-path` | Optional absolute path or path relative to `GITHUB_WORKSPACE` containing a custom issue body. The built-in English template is used when omitted. |
 | `timezone` | IANA timezone used to calculate the date in the issue title, for example `Europe/Moscow`. |
 

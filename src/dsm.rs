@@ -16,13 +16,14 @@ pub async fn run(
     client: &GitHubClient,
     owner: &str,
     repo: &str,
-    team_slug: &str,
+    team_slugs: &[String],
+    issue_type: &str,
     title: &str,
     template: &str,
 ) -> Result<()> {
-    let issue_type = client.issue_type(owner, repo, team_slug).await?;
+    let issue_type = client.issue_type(owner, repo, issue_type).await?;
     let issues = client.open_issues(owner, repo, &issue_type).await?;
-    let members = client.team_members(owner, team_slug).await?;
+    let members = collect_team_members(client, owner, team_slugs).await?;
     let assignable = client.assignable_users(owner, repo).await?;
     let assignees = select_assignees(&members, &assignable);
     let plan = plan_issues(issues, title, &assignees);
@@ -40,6 +41,25 @@ pub async fn run(
     }
 
     Ok(())
+}
+
+async fn collect_team_members(
+    client: &GitHubClient,
+    owner: &str,
+    team_slugs: &[String],
+) -> Result<Vec<User>> {
+    let mut member_ids = HashSet::new();
+    let mut members = Vec::new();
+
+    for team_slug in team_slugs {
+        for member in client.team_members(owner, team_slug).await? {
+            if member_ids.insert(member.node_id.clone()) {
+                members.push(member);
+            }
+        }
+    }
+
+    Ok(members)
 }
 
 fn build_body(template: &str, members: &[User]) -> String {
@@ -86,7 +106,9 @@ fn plan_issues(issues: Vec<OpenIssue>, current_title: &str, assignees: &[String]
 
 #[cfg(test)]
 mod tests {
-    use super::{build_body, plan_issues, run, select_assignees, Plan, MAX_ASSIGNEES};
+    use super::{
+        build_body, collect_team_members, plan_issues, run, select_assignees, Plan, MAX_ASSIGNEES,
+    };
     use crate::github::{test_support::MockServer, GitHubClient, OpenIssue, User};
 
     fn user(index: usize) -> User {
@@ -94,6 +116,10 @@ mod tests {
             login: format!("member-{index}"),
             node_id: format!("node-{index}"),
         }
+    }
+
+    fn team_slugs(slugs: &[&str]) -> Vec<String> {
+        slugs.iter().map(|slug| (*slug).to_string()).collect()
     }
 
     #[test]
@@ -187,6 +213,41 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn merges_members_from_multiple_teams_in_input_order() {
+        let server = MockServer::start(vec![
+            MockServer::response(
+                "200 OK",
+                r#"[{"login":"first","node_id":"node-1"},{"login":"shared","node_id":"node-2"}]"#,
+                &[],
+            ),
+            MockServer::response(
+                "200 OK",
+                r#"[{"login":"shared","node_id":"node-2"},{"login":"last","node_id":"node-3"}]"#,
+                &[],
+            ),
+        ]);
+        let client = GitHubClient::with_api_root("test-secret", server.api_root.clone()).unwrap();
+
+        let members =
+            collect_team_members(&client, "org", &team_slugs(&["engineering", "operations"]))
+                .await
+                .unwrap();
+        let requests = server.finish();
+
+        assert_eq!(
+            members
+                .iter()
+                .map(|member| member.login.as_str())
+                .collect::<Vec<_>>(),
+            vec!["first", "shared", "last"]
+        );
+        assert!(requests[0]
+            .starts_with("GET /orgs/org/teams/engineering/members?role=all&per_page=100 HTTP/1.1"));
+        assert!(requests[1]
+            .starts_with("GET /orgs/org/teams/operations/members?role=all&per_page=100 HTTP/1.1"));
+    }
+
+    #[tokio::test]
     async fn creates_and_verifies_the_current_dsm_before_closing_stale_issues() {
         let server = MockServer::start(vec![
             MockServer::response("200 OK", r#"[{"name":"DSM"}]"#, &[]),
@@ -206,9 +267,17 @@ mod tests {
         ]);
         let client = GitHubClient::with_api_root("test-secret", server.api_root.clone()).unwrap();
 
-        run(&client, "org", "repo", "DSM", "[DSM] Monday", "Template")
-            .await
-            .unwrap();
+        run(
+            &client,
+            "org",
+            "repo",
+            &team_slugs(&["engineering"]),
+            "DSM",
+            "[DSM] Monday",
+            "Template",
+        )
+        .await
+        .unwrap();
         let requests = server.finish();
 
         assert_eq!(requests.len(), 6);
@@ -216,7 +285,7 @@ mod tests {
         assert!(requests[1]
             .starts_with("GET /repos/org/repo/issues?state=open&type=DSM&per_page=100 HTTP/1.1"));
         assert!(requests[2]
-            .starts_with("GET /orgs/org/teams/DSM/members?role=all&per_page=100 HTTP/1.1"));
+            .starts_with("GET /orgs/org/teams/engineering/members?role=all&per_page=100 HTTP/1.1"));
         assert!(requests[3].starts_with("GET /repos/org/repo/assignees?per_page=100 HTTP/1.1"));
         assert!(requests[4].starts_with("POST /repos/org/repo/issues HTTP/1.1"));
         assert!(requests[4].contains("Template\\n<details>\\n@member\\n</details>"));
@@ -243,9 +312,17 @@ mod tests {
         ]);
         let client = GitHubClient::with_api_root("test-secret", server.api_root.clone()).unwrap();
 
-        let error = run(&client, "org", "repo", "DSM", "[DSM] Monday", "Template")
-            .await
-            .unwrap_err();
+        let error = run(
+            &client,
+            "org",
+            "repo",
+            &team_slugs(&["engineering"]),
+            "DSM",
+            "[DSM] Monday",
+            "Template",
+        )
+        .await
+        .unwrap_err();
         let requests = server.finish();
 
         assert_eq!(
