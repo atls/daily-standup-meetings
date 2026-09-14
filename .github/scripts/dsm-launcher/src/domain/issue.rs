@@ -26,6 +26,17 @@ impl Deref for IssueId {
     }
 }
 
+pub struct OpenIssue {
+    pub id: IssueId,
+    pub title: String,
+}
+
+impl OpenIssue {
+    pub fn new(id: IssueId, title: String) -> Self {
+        OpenIssue { id, title }
+    }
+}
+
 #[derive(Debug)]
 pub struct IssueType {
     pub id: String,

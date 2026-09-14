@@ -2,7 +2,7 @@ use anyhow::{Ok, Result};
 use async_trait::async_trait;
 
 use crate::domain::{
-    issue::{Issue, IssueId, IssueType},
+    issue::{Issue, IssueId, IssueType, OpenIssue},
     repo::RepoId,
     repository::IssueRepository,
 };
@@ -28,7 +28,7 @@ const MAX_ASSIGNEES: usize = 10;
 
 #[async_trait]
 impl IssueRepository for GitHubAdapter {
-    async fn get_issues(&self, repo_id: &RepoId, issue_type: &str) -> Result<Vec<IssueId>> {
+    async fn get_issues(&self, repo_id: &RepoId, issue_type: &str) -> Result<Vec<OpenIssue>> {
         let mut cursor = None;
         let mut issues = Vec::new();
 
@@ -67,7 +67,7 @@ impl IssueRepository for GitHubAdapter {
                             issue_type,
                         )
                     })
-                    .map(|issue| IssueId::new(issue.id)),
+                    .map(|issue| OpenIssue::new(IssueId::new(issue.id), issue.title)),
             );
 
             cursor = next_issues_cursor(

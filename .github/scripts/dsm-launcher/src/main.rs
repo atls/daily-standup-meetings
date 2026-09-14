@@ -58,7 +58,7 @@ async fn main() -> Result<()> {
     };
     let get_team_members = GetTeamMembersQuery { repo: adapter };
 
-    close_issues(
+    let current_issue_exists = close_issues(
         get_org.clone(),
         get_repo.clone(),
         get_issues,
@@ -66,23 +66,27 @@ async fn main() -> Result<()> {
         &config.repo_owner,
         &config.repo_name,
         &config.team_slug,
-    )
-    .await?;
-    create_issue(
-        get_org,
-        get_repo,
-        get_team,
-        get_team_members,
-        get_issue_types,
-        create_issue_,
-        &config.repo_owner,
-        &config.repo_name,
-        &config.team_slug,
-        &config.team_slug,
         &title,
-        &body,
     )
     .await?;
+
+    if !current_issue_exists {
+        create_issue(
+            get_org,
+            get_repo,
+            get_team,
+            get_team_members,
+            get_issue_types,
+            create_issue_,
+            &config.repo_owner,
+            &config.repo_name,
+            &config.team_slug,
+            &config.team_slug,
+            &title,
+            &body,
+        )
+        .await?;
+    }
 
     Ok(())
 }
