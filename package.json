@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "GitHub Action that creates daily standup issues for organization teams",
+  "license": "BSD-3-Clause",
   "author": "TorinAsakura",
   "type": "module",
   "main": "dist/index.js",
