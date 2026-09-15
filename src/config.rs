@@ -115,14 +115,22 @@ mod tests {
     }
 
     #[test]
-    fn loads_action_inputs_and_formats_the_title_in_the_requested_timezone() {
+    fn loads_action_configuration() {
         let mut values = required_values();
         values.insert(
             "DSM_TEAM_SLUGS",
             "platform\nproduct,Platform\noperations".to_string(),
         );
         values.insert("DSM_ISSUE_TYPE", "Standup".to_string());
-        values.insert("DSM_TEMPLATE_PATH", "templates/standup.md".to_string());
+        values.insert(
+            "DSM_TEMPLATE_PATH",
+            "/home/runner/work/service/service/templates/standup.md".to_string(),
+        );
+        values.insert(
+            "DSM_HOST_WORKSPACE",
+            "/home/runner/work/service/service".to_string(),
+        );
+        values.insert("GITHUB_WORKSPACE", "/github/workspace".to_string());
         values.insert("DSM_TIMEZONE", "Europe/Moscow".to_string());
 
         let config = Config::from_lookup(|name| values.get(name).cloned()).unwrap();
@@ -132,76 +140,15 @@ mod tests {
         assert_eq!(config.issue_type, "Standup");
         assert_eq!(
             config.template_path.as_deref(),
-            Some(std::path::Path::new("templates/standup.md"))
+            Some(std::path::Path::new(
+                "/github/workspace/templates/standup.md"
+            ))
         );
         assert_eq!(config.title(now), "[DSM] Fri Sep 11 2026");
     }
 
     #[test]
-    fn maps_a_runner_workspace_path_to_the_container_workspace() {
-        let mut values = required_values();
-        values.insert(
-            "DSM_TEMPLATE_PATH",
-            "/home/runner/work/service/service/.github/ISSUE_TEMPLATE/dsm.md".to_string(),
-        );
-        values.insert(
-            "DSM_HOST_WORKSPACE",
-            "/home/runner/work/service/service".to_string(),
-        );
-        values.insert("GITHUB_WORKSPACE", "/github/workspace".to_string());
-
-        let config = Config::from_lookup(|name| values.get(name).cloned()).unwrap();
-
-        assert_eq!(
-            config.template_path.as_deref(),
-            Some(std::path::Path::new(
-                "/github/workspace/.github/ISSUE_TEMPLATE/dsm.md"
-            ))
-        );
-    }
-
-    #[test]
-    fn uses_the_built_in_template_when_no_override_is_set() {
-        let values = required_values();
-
-        let config = Config::from_lookup(|name| values.get(name).cloned()).unwrap();
-        let now = Utc.with_ymd_and_hms(2026, 9, 10, 21, 30, 0).unwrap();
-
-        assert_eq!(config.team_slugs, vec!["engineering"]);
-        assert_eq!(config.issue_type, "DSM");
-        assert_eq!(config.template_path, None);
-        assert_eq!(config.title(now), "[DSM] Thu Sep 10 2026");
-    }
-
-    #[test]
-    fn rejects_an_empty_team_list_before_github_is_called() {
-        let mut values = required_values();
-        values.insert("DSM_TEAM_SLUGS", " , \n".to_string());
-
-        let error = Config::from_lookup(|name| values.get(name).cloned())
-            .err()
-            .unwrap();
-
-        assert_eq!(
-            error.to_string(),
-            "DSM_TEAM_SLUGS must contain at least one team slug"
-        );
-    }
-
-    #[test]
-    fn rejects_an_empty_issue_type_before_github_is_called() {
-        let mut values = required_values();
-        values.insert("DSM_ISSUE_TYPE", "  ".to_string());
-
-        let error = Config::from_lookup(|name| values.get(name).cloned())
-            .err()
-            .unwrap();
-
-        assert_eq!(error.to_string(), "DSM_ISSUE_TYPE is required");
-    }
-
-    #[test]
-    fn uses_the_built_in_template_when_action_passes_an_empty_override() {
+    fn uses_the_built_in_template_without_an_override() {
         let mut values = required_values();
         values.insert("DSM_TEMPLATE_PATH", String::new());
 
@@ -211,17 +158,28 @@ mod tests {
     }
 
     #[test]
-    fn rejects_an_unknown_timezone_before_github_is_called() {
-        let mut values = required_values();
-        values.insert("DSM_TIMEZONE", "Mars/Olympus_Mons".to_string());
+    fn rejects_invalid_configuration() {
+        for (name, value, expected) in [
+            (
+                "DSM_TEAM_SLUGS",
+                " , \n",
+                "DSM_TEAM_SLUGS must contain at least one team slug",
+            ),
+            ("DSM_ISSUE_TYPE", "  ", "DSM_ISSUE_TYPE is required"),
+            (
+                "DSM_TIMEZONE",
+                "Mars/Olympus_Mons",
+                "invalid DSM_TIMEZONE `Mars/Olympus_Mons`",
+            ),
+        ] {
+            let mut values = required_values();
+            values.insert(name, value.to_string());
 
-        let error = Config::from_lookup(|name| values.get(name).cloned())
-            .err()
-            .unwrap();
+            let error = Config::from_lookup(|key| values.get(key).cloned())
+                .err()
+                .unwrap();
 
-        assert_eq!(
-            error.to_string(),
-            "invalid DSM_TIMEZONE `Mars/Olympus_Mons`"
-        );
+            assert_eq!(error.to_string(), expected);
+        }
     }
 }
