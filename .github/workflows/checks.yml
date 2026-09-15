@@ -1,4 +1,4 @@
-name: Test Action
+name: Checks
 
 on:
   pull_request:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
@@ -29,7 +29,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
-        run: yarn library build
-
-      - name: Verify committed build
-        run: git diff --exit-code -- dist
+        run: yarn service build

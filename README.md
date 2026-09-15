@@ -57,7 +57,7 @@ issue unchanged. On the next day, the Action resolves the configured teams and
 assignees, closes the previous issue, and creates the new one. Issue assignment
 does not determine whether the current day's DSM already exists.
 
-The Action runs the committed JavaScript build on the GitHub Actions Node.js 24
+The Action runs the committed JavaScript bundle on the GitHub Actions Node.js 24
 runtime. Consumers do not need Docker, TypeScript, Raijin, GitHub CLI, or a
 separately downloaded release asset.
 
