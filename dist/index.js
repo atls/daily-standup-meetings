@@ -13,7 +13,7 @@ const external_node_path_namespaceObject = __WEBPACK_EXTERNAL_createRequire(impo
 ;// external "node:url"
 const external_node_url_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:url");
 ;// ./src/github.ts
-const API_ROOT = 'https://api.github.com/';
+const DEFAULT_API_ROOT = 'https://api.github.com/';
 const API_VERSION = '2026-03-10';
 const MAX_PAGE_SIZE = '100';
 const asRecord = (value, context) => {
@@ -62,11 +62,14 @@ const parseIssue = (value) => {
     };
 };
 class GitHubClient {
+    #apiRoot;
     #headers;
-    constructor(token) {
+    constructor(token, apiRoot = process.env.GITHUB_API_URL ?? DEFAULT_API_ROOT) {
+        this.#apiRoot = new URL(apiRoot.endsWith('/') ? apiRoot : `${apiRoot}/`);
         this.#headers = new Headers({
             Accept: 'application/vnd.github+json',
             Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
             'User-Agent': 'atls-daily-standup-meetings',
             'X-GitHub-Api-Version': API_VERSION,
         });
@@ -179,7 +182,7 @@ class GitHubClient {
                 throw new Error('GitHub pagination next link was malformed');
             }
             const next = new URL(value);
-            if (next.origin !== new URL(API_ROOT).origin) {
+            if (next.origin !== this.#apiRoot.origin) {
                 throw new Error('GitHub pagination next link changed API origin');
             }
             return next;
@@ -199,7 +202,7 @@ class GitHubClient {
         }
     }
     endpoint(...segments) {
-        return new URL(segments.map(encodeURIComponent).join('/'), API_ROOT);
+        return new URL(segments.map(encodeURIComponent).join('/'), this.#apiRoot);
     }
     errorMessage(error) {
         return error instanceof Error ? error.message : String(error);

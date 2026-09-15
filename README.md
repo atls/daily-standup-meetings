@@ -85,15 +85,6 @@ variables and its private key in repository secrets.
 If the organization restricts Actions, allow `atls/daily-standup-meetings@*` in
 the selected actions allowlist.
 
-## Release boundary
-
-Create `v1.0.0` at the reviewed release commit, point the compatible `v1` tag at
-the same commit, and publish that release to GitHub Marketplace.
-
-License selection, release and tag creation, Marketplace publication, and
-acceptance in a private consumer repository are post-merge steps and are not
-performed by this change.
-
 ## DSM template
 
 The Action includes [`templates/dsm.md`](templates/dsm.md) by default. Consumers

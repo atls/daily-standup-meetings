@@ -1,4 +1,4 @@
-const API_ROOT = 'https://api.github.com/'
+const DEFAULT_API_ROOT = 'https://api.github.com/'
 const API_VERSION = '2026-03-10'
 const MAX_PAGE_SIZE = '100'
 
@@ -82,12 +82,16 @@ const parseIssue = (value: unknown): ApiIssue => {
 }
 
 export class GitHubClient {
+  readonly #apiRoot: URL
+
   readonly #headers: Headers
 
-  constructor(token: string) {
+  constructor(token: string, apiRoot = process.env.GITHUB_API_URL ?? DEFAULT_API_ROOT) {
+    this.#apiRoot = new URL(apiRoot.endsWith('/') ? apiRoot : `${apiRoot}/`)
     this.#headers = new Headers({
       Accept: 'application/vnd.github+json',
       Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
       'User-Agent': 'atls-daily-standup-meetings',
       'X-GitHub-Api-Version': API_VERSION,
     })
@@ -257,7 +261,7 @@ export class GitHubClient {
 
       const next = new URL(value)
 
-      if (next.origin !== new URL(API_ROOT).origin) {
+      if (next.origin !== this.#apiRoot.origin) {
         throw new Error('GitHub pagination next link changed API origin')
       }
 
@@ -289,7 +293,7 @@ export class GitHubClient {
   }
 
   private endpoint(...segments: Array<string>): URL {
-    return new URL(segments.map(encodeURIComponent).join('/'), API_ROOT)
+    return new URL(segments.map(encodeURIComponent).join('/'), this.#apiRoot)
   }
 
   private errorMessage(error: unknown): string {
