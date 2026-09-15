@@ -1,0 +1,28 @@
+name: Daily Standup Meetings
+description: Create a daily standup issue for members of GitHub organization teams
+author: TorinAsakura
+
+inputs:
+  github-token:
+    description: GitHub App installation token used to read teams and manage issues
+    required: true
+  team-slugs:
+    description: Comma-separated or multiline slugs of GitHub organization teams included in the standup
+    required: true
+  issue-type:
+    description: Repository issue type assigned to the standup issue
+    required: true
+  template-path:
+    description: Optional path to a custom standup issue body template; uses the bundled English template when omitted
+    required: false
+  timezone:
+    description: IANA timezone used for the date in the standup issue title
+    required: true
+
+runs:
+  using: node24
+  main: dist/index.js
+
+branding:
+  icon: calendar
+  color: blue
