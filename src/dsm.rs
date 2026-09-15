@@ -1,16 +1,9 @@
 use anyhow::Result;
 use std::collections::HashSet;
 
-use crate::github::{GitHubClient, OpenIssue, User};
+use crate::github::{GitHubClient, User};
 
-const DSM_TITLE_PREFIX: &str = "[DSM] ";
 const MAX_ASSIGNEES: usize = 10;
-
-#[derive(Debug, PartialEq, Eq)]
-struct Plan {
-    create: bool,
-    close: Vec<u64>,
-}
 
 pub async fn run(
     client: &GitHubClient,
@@ -22,23 +15,27 @@ pub async fn run(
     template: &str,
 ) -> Result<()> {
     let issue_type = client.issue_type(owner, repo, issue_type).await?;
-    let issues = client.open_issues(owner, repo, &issue_type).await?;
+    let current_issue = client.latest_open_issue(owner, repo, &issue_type).await?;
+
+    if current_issue
+        .as_ref()
+        .is_some_and(|issue| issue.title == title)
+    {
+        return Ok(());
+    }
+
     let members = collect_team_members(client, owner, team_slugs).await?;
     let assignable = client.assignable_users(owner, repo).await?;
     let assignees = select_assignees(&members, &assignable);
-    let plan = plan_issues(issues, title, &assignees);
+    let body = build_body(template, &members);
 
-    if plan.create {
-        let body = build_body(template, &members);
-
-        client
-            .create_issue(owner, repo, title, &body, &issue_type, &assignees)
-            .await?;
+    if let Some(issue) = current_issue {
+        client.close_issue(owner, repo, issue.number).await?;
     }
 
-    for number in plan.close {
-        client.close_issue(owner, repo, number).await?;
-    }
+    client
+        .create_issue(owner, repo, title, &body, &issue_type, &assignees)
+        .await?;
 
     Ok(())
 }
@@ -86,30 +83,10 @@ fn select_assignees(members: &[User], assignable: &[User]) -> Vec<String> {
         .collect()
 }
 
-fn plan_issues(issues: Vec<OpenIssue>, current_title: &str, assignees: &[String]) -> Plan {
-    let mut create = true;
-    let mut close = Vec::new();
-
-    for issue in issues
-        .into_iter()
-        .filter(|issue| issue.title.starts_with(DSM_TITLE_PREFIX))
-    {
-        if issue.title == current_title && issue.has_all_assignees(assignees) && create {
-            create = false;
-        } else {
-            close.push(issue.number);
-        }
-    }
-
-    Plan { create, close }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{
-        build_body, collect_team_members, plan_issues, run, select_assignees, Plan, MAX_ASSIGNEES,
-    };
-    use crate::github::{test_support::MockServer, GitHubClient, OpenIssue, User};
+    use super::{build_body, collect_team_members, run, select_assignees, MAX_ASSIGNEES};
+    use crate::github::{test_support::MockServer, GitHubClient, User};
 
     fn user(index: usize) -> User {
         User {
@@ -120,74 +97,6 @@ mod tests {
 
     fn team_slugs(slugs: &[&str]) -> Vec<String> {
         slugs.iter().map(|slug| (*slug).to_string()).collect()
-    }
-
-    #[test]
-    fn preserves_one_current_issue_and_closes_stale_or_duplicate_dsm_issues() {
-        let issues = vec![
-            OpenIssue {
-                number: 1,
-                title: "[DSM] Sunday".to_string(),
-                assignees: Vec::new(),
-            },
-            OpenIssue {
-                number: 2,
-                title: "[DSM] Monday".to_string(),
-                assignees: vec!["member".to_string()],
-            },
-            OpenIssue {
-                number: 3,
-                title: "[DSM] Monday".to_string(),
-                assignees: vec!["member".to_string()],
-            },
-            OpenIssue {
-                number: 4,
-                title: "Unrelated task".to_string(),
-                assignees: Vec::new(),
-            },
-        ];
-
-        assert_eq!(
-            plan_issues(issues, "[DSM] Monday", &["member".to_string()]),
-            Plan {
-                create: false,
-                close: vec![1, 3],
-            }
-        );
-    }
-
-    #[test]
-    fn requests_creation_before_closing_stale_issues() {
-        let issues = vec![OpenIssue {
-            number: 1,
-            title: "[DSM] Sunday".to_string(),
-            assignees: Vec::new(),
-        }];
-
-        assert_eq!(
-            plan_issues(issues, "[DSM] Monday", &[]),
-            Plan {
-                create: true,
-                close: vec![1],
-            }
-        );
-    }
-
-    #[test]
-    fn replaces_a_current_issue_that_is_missing_an_expected_assignee() {
-        let issues = vec![OpenIssue {
-            number: 2,
-            title: "[DSM] Monday".to_string(),
-            assignees: Vec::new(),
-        }];
-
-        assert_eq!(
-            plan_issues(issues, "[DSM] Monday", &["member".to_string()]),
-            Plan {
-                create: true,
-                close: vec![2],
-            }
-        );
     }
 
     #[test]
@@ -248,7 +157,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn creates_and_verifies_the_current_dsm_before_closing_stale_issues() {
+    async fn closes_the_latest_stale_dsm_before_creating_the_current_one() {
         let server = MockServer::start(vec![
             MockServer::response("200 OK", r#"[{"name":"DSM"}]"#, &[]),
             MockServer::response(
@@ -258,12 +167,12 @@ mod tests {
             ),
             MockServer::response("200 OK", r#"[{"login":"member","node_id":"node-1"}]"#, &[]),
             MockServer::response("200 OK", r#"[{"login":"member","node_id":"node-1"}]"#, &[]),
+            MockServer::response("200 OK", "{}", &[]),
             MockServer::response(
                 "201 Created",
                 r#"{"number":2,"title":"[DSM] Monday","type":{"name":"DSM"},"assignees":[{"login":"member","node_id":"node-1"}]}"#,
                 &[],
             ),
-            MockServer::response("200 OK", "{}", &[]),
         ]);
         let client = GitHubClient::with_api_root("test-secret", server.api_root.clone()).unwrap();
 
@@ -282,37 +191,33 @@ mod tests {
 
         assert_eq!(requests.len(), 6);
         assert!(requests[0].starts_with("GET /repos/org/repo/issue-types HTTP/1.1"));
-        assert!(requests[1]
-            .starts_with("GET /repos/org/repo/issues?state=open&type=DSM&per_page=100 HTTP/1.1"));
+        assert!(requests[1].starts_with(
+            "GET /repos/org/repo/issues?state=open&type=DSM&sort=created&direction=desc&per_page=1 HTTP/1.1"
+        ));
         assert!(requests[2]
             .starts_with("GET /orgs/org/teams/engineering/members?role=all&per_page=100 HTTP/1.1"));
         assert!(requests[3].starts_with("GET /repos/org/repo/assignees?per_page=100 HTTP/1.1"));
-        assert!(requests[4].starts_with("POST /repos/org/repo/issues HTTP/1.1"));
-        assert!(requests[4].contains("Template\\n<details>\\n@member\\n</details>"));
-        assert!(requests[5].starts_with("PATCH /repos/org/repo/issues/1 HTTP/1.1"));
+        assert!(requests[4].starts_with("PATCH /repos/org/repo/issues/1 HTTP/1.1"));
+        assert!(requests[5].starts_with("POST /repos/org/repo/issues HTTP/1.1"));
+        assert!(requests[5].contains("Template\\n<details>\\n@member\\n</details>"));
     }
 
     #[tokio::test]
-    async fn leaves_stale_issues_open_when_github_drops_create_fields() {
+    async fn creates_the_current_dsm_when_the_repository_has_no_open_issue() {
         let server = MockServer::start(vec![
             MockServer::response("200 OK", r#"[{"name":"DSM"}]"#, &[]),
-            MockServer::response(
-                "200 OK",
-                r#"[{"number":1,"title":"[DSM] Sunday","type":{"name":"DSM"},"assignees":[]}]"#,
-                &[],
-            ),
+            MockServer::response("200 OK", "[]", &[]),
             MockServer::response("200 OK", r#"[{"login":"member","node_id":"node-1"}]"#, &[]),
             MockServer::response("200 OK", r#"[{"login":"member","node_id":"node-1"}]"#, &[]),
             MockServer::response(
                 "201 Created",
-                r#"{"number":2,"title":"[DSM] Monday","type":{"name":"DSM"},"assignees":[]}"#,
+                r#"{"number":1,"title":"[DSM] Monday","type":{"name":"DSM"},"assignees":[{"login":"member","node_id":"node-1"}]}"#,
                 &[],
             ),
-            MockServer::response("200 OK", "{}", &[]),
         ]);
         let client = GitHubClient::with_api_root("test-secret", server.api_root.clone()).unwrap();
 
-        let error = run(
+        run(
             &client,
             "org",
             "repo",
@@ -322,17 +227,44 @@ mod tests {
             "Template",
         )
         .await
-        .unwrap_err();
+        .unwrap();
         let requests = server.finish();
 
-        assert_eq!(
-            error.to_string(),
-            "GitHub did not apply all requested assignees"
-        );
-        assert_eq!(requests.len(), 6);
-        assert!(requests[5].starts_with("PATCH /repos/org/repo/issues/2 HTTP/1.1"));
+        assert_eq!(requests.len(), 5);
+        assert!(requests[4].starts_with("POST /repos/org/repo/issues HTTP/1.1"));
         assert!(!requests
             .iter()
-            .any(|request| request.starts_with("PATCH /repos/org/repo/issues/1 HTTP/1.1")));
+            .any(|request| request.starts_with("PATCH /repos/org/repo/issues/")));
+    }
+
+    #[tokio::test]
+    async fn keeps_the_current_dsm_even_when_its_assignees_changed() {
+        let server = MockServer::start(vec![
+            MockServer::response("200 OK", r#"[{"name":"DSM"}]"#, &[]),
+            MockServer::response(
+                "200 OK",
+                r#"[{"number":1,"title":"[DSM] Monday","type":{"name":"DSM"},"assignees":[]}]"#,
+                &[],
+            ),
+        ]);
+        let client = GitHubClient::with_api_root("test-secret", server.api_root.clone()).unwrap();
+
+        run(
+            &client,
+            "org",
+            "repo",
+            &team_slugs(&["engineering"]),
+            "DSM",
+            "[DSM] Monday",
+            "Template",
+        )
+        .await
+        .unwrap();
+        let requests = server.finish();
+
+        assert_eq!(requests.len(), 2);
+        assert!(requests[1].starts_with(
+            "GET /repos/org/repo/issues?state=open&type=DSM&sort=created&direction=desc&per_page=1 HTTP/1.1"
+        ));
     }
 }

@@ -2,10 +2,10 @@
 
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Daily%20Standup%20Meetings-blue?logo=github)](https://github.com/marketplace/actions/daily-standup-meetings)
 
-DSM creates a dated issue in the current repository, mentions every unique
-member of the selected GitHub organization teams, and assigns the first 10
-repository-assignable members allowed by GitHub's per-issue assignee limit. The
-issue body is read from a template in the Action, with an optional
+DSM maintains one daily standup issue in a dedicated repository, mentions every
+unique member of the selected GitHub organization teams, and assigns the first
+10 repository-assignable members allowed by GitHub's per-issue assignee limit.
+The issue body is read from a template in the Action, with an optional
 consumer-provided override. The token and all organization-specific settings
 stay in the consumer repository.
 
@@ -48,8 +48,14 @@ jobs:
           timezone: Europe/Moscow
 ```
 
-Use the same `dsm-${{ github.repository }}` concurrency group in every workflow
-that invokes the Action so overlapping runs cannot create duplicate issues.
+The dedicated repository is the boundary of one standup stream. Use the same
+`dsm-${{ github.repository }}` concurrency group in every workflow that invokes
+the Action so overlapping runs cannot create duplicate issues.
+
+Each run reads only the latest open DSM issue. A same-day rerun leaves that
+issue unchanged. On the next day, the Action resolves the configured teams and
+assignees, closes the previous issue, and creates the new one. Issue assignment
+does not determine whether the current day's DSM already exists.
 
 The Action runs its Rust binary directly in a Docker container. Consumers need
 a Linux runner with Docker support and do not need Rust, Bash, GitHub CLI, or a

@@ -220,7 +220,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn filters_pull_requests_and_unexpected_issue_types() {
+    async fn returns_only_the_latest_open_issue_of_the_requested_type() {
         let body = r#"[
             {"number":1,"title":"[DSM] Monday","type":{"name":"DSM"},"assignees":[]},
             {"number":2,"title":"[DSM] PR","type":{"name":"DSM"},"assignees":[],"pull_request":{}},
@@ -229,11 +229,17 @@ mod tests {
         let server = MockServer::start(vec![MockServer::response("200 OK", body, &[])]);
         let client = GitHubClient::with_api_root("test-secret", server.api_root.clone()).unwrap();
 
-        let issues = client.open_issues("org", "repo", "DSM").await.unwrap();
-        server.finish();
+        let issue = client
+            .latest_open_issue("org", "repo", "DSM")
+            .await
+            .unwrap()
+            .unwrap();
+        let requests = server.finish();
 
-        assert_eq!(issues.len(), 1);
-        assert_eq!(issues[0].number, 1);
+        assert_eq!(issue.number, 1);
+        assert!(requests[0].starts_with(
+            "GET /repos/org/repo/issues?state=open&type=DSM&sort=created&direction=desc&per_page=1 HTTP/1.1"
+        ));
     }
 }
 
@@ -241,17 +247,6 @@ mod tests {
 pub struct OpenIssue {
     pub number: u64,
     pub title: String,
-    pub assignees: Vec<String>,
-}
-
-impl OpenIssue {
-    pub fn has_all_assignees(&self, expected: &[String]) -> bool {
-        expected.iter().all(|login| {
-            self.assignees
-                .iter()
-                .any(|actual| actual.eq_ignore_ascii_case(login))
-        })
-    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -347,19 +342,21 @@ impl GitHubClient {
             .with_context(|| format!("repository issue type `{expected}` was not found"))
     }
 
-    pub async fn open_issues(
+    pub async fn latest_open_issue(
         &self,
         owner: &str,
         repo: &str,
         issue_type: &str,
-    ) -> Result<Vec<OpenIssue>> {
+    ) -> Result<Option<OpenIssue>> {
         let mut url = self.endpoint(&["repos", owner, repo, "issues"])?;
         url.query_pairs_mut()
             .append_pair("state", "open")
             .append_pair("type", issue_type)
-            .append_pair("per_page", MAX_PAGE_SIZE);
+            .append_pair("sort", "created")
+            .append_pair("direction", "desc")
+            .append_pair("per_page", "1");
 
-        let issues: Vec<ApiIssue> = self.get_all(url).await?;
+        let issues: Vec<ApiIssue> = self.get_json(url).await?;
 
         Ok(issues
             .into_iter()
@@ -372,13 +369,8 @@ impl GitHubClient {
             .map(|issue| OpenIssue {
                 number: issue.number,
                 title: issue.title,
-                assignees: issue
-                    .assignees
-                    .into_iter()
-                    .map(|assignee| assignee.login)
-                    .collect(),
             })
-            .collect())
+            .next())
     }
 
     pub async fn create_issue(
@@ -418,11 +410,6 @@ impl GitHubClient {
         Ok(OpenIssue {
             number: created.number,
             title: created.title,
-            assignees: created
-                .assignees
-                .into_iter()
-                .map(|assignee| assignee.login)
-                .collect(),
         })
     }
 
