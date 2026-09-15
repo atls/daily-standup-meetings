@@ -2,11 +2,17 @@ import type { GitHubClient } from './github.js'
 import type { GitHubUser }   from './github.js'
 
 const MAX_ASSIGNEES = 10
+const MAX_ISSUE_BODY_LENGTH = 65_536
 
 export const buildBody = (template: string, members: Array<GitHubUser>): string => {
   const mentions = members.map(({ login }) => `@${login}`).join(' ')
+  const body = `${template}\n<details>\n${mentions}\n</details>`
 
-  return `${template}\n<details>\n${mentions}\n</details>`
+  if (body.length > MAX_ISSUE_BODY_LENGTH) {
+    throw new Error(`DSM issue body exceeds ${MAX_ISSUE_BODY_LENGTH} characters`)
+  }
+
+  return body
 }
 
 export const selectAssignees = (

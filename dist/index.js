@@ -291,9 +291,14 @@ const formatTitle = (timezone, now = new Date()) => {
 
 ;// ./src/dsm.ts
 const MAX_ASSIGNEES = 10;
+const MAX_ISSUE_BODY_LENGTH = 65_536;
 const buildBody = (template, members) => {
     const mentions = members.map(({ login }) => `@${login}`).join(' ');
-    return `${template}\n<details>\n${mentions}\n</details>`;
+    const body = `${template}\n<details>\n${mentions}\n</details>`;
+    if (body.length > MAX_ISSUE_BODY_LENGTH) {
+        throw new Error(`DSM issue body exceeds ${MAX_ISSUE_BODY_LENGTH} characters`);
+    }
+    return body;
 };
 const selectAssignees = (members, assignable) => {
     const assignableIds = new Set(assignable.map(({ nodeId }) => nodeId));

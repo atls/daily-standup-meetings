@@ -9,11 +9,6 @@
   "scripts": {
     "build": "yarn service build"
   },
-  "lint-staged": {
-    "*.{yml,yaml,json,md}": "yarn format",
-    "*.{js,mjs,cjs,ts}": "yarn format",
-    "*.test.ts": "yarn test unit"
-  },
   "devDependencies": {
     "@atls/raijin": "0.7.0",
     "typescript": "5.9.3"
