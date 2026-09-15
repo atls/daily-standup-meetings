@@ -7,6 +7,7 @@ on:
       - master
 
 permissions:
+  checks: write
   contents: read
 
 jobs:
@@ -22,8 +23,10 @@ jobs:
       - name: Install
         run: yarn install --immutable
 
-      - name: Test
-        run: yarn test unit --target src
+      - name: Checks
+        run: yarn checks run --no-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
         run: yarn library build
