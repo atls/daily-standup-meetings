@@ -16,7 +16,7 @@ name: DSM
 
 on:
   schedule:
-    - cron: "0 4 * * 1-5"
+    - cron: '0 4 * * 1-5'
   workflow_dispatch:
 
 concurrency:
@@ -57,19 +57,19 @@ issue unchanged. On the next day, the Action resolves the configured teams and
 assignees, closes the previous issue, and creates the new one. Issue assignment
 does not determine whether the current day's DSM already exists.
 
-The Action runs its Rust binary directly in a Docker container. Consumers need
-a Linux runner with Docker support and do not need Rust, Bash, GitHub CLI, or a
+The Action runs the committed JavaScript bundle on the GitHub Actions Node.js 24
+runtime. Consumers do not need Docker, TypeScript, Raijin, GitHub CLI, or a
 separately downloaded release asset.
 
 ## Inputs
 
-| Input | Description |
-| --- | --- |
-| `github-token` | GitHub App installation token used to read teams and create or close DSM issues. |
-| `team-slugs` | One or more organization team slugs, separated by commas or newlines. Duplicate members are removed in team order before the first 10 assignable members are selected. |
-| `issue-type` | Repository issue type assigned to each standup issue. |
-| `template-path` | Optional absolute path or path relative to `GITHUB_WORKSPACE` containing a custom issue body. The built-in English template is used when omitted. |
-| `timezone` | IANA timezone used to calculate the date in the issue title, for example `Europe/Moscow`. |
+| Input           | Description                                                                                                                                                            |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `github-token`  | GitHub App installation token used to read teams and create or close DSM issues.                                                                                       |
+| `team-slugs`    | One or more organization team slugs, separated by commas or newlines. Duplicate members are removed in team order before the first 10 assignable members are selected. |
+| `issue-type`    | Repository issue type assigned to each standup issue.                                                                                                                  |
+| `template-path` | Optional absolute path or path relative to `GITHUB_WORKSPACE` containing a custom issue body. The built-in English template is used when omitted.                      |
+| `timezone`      | IANA timezone used to calculate the date in the issue title, for example `Europe/Moscow`.                                                                              |
 
 ## GitHub App access
 

@@ -20,17 +20,8 @@ inputs:
     required: true
 
 runs:
-  using: docker
-  image: Dockerfile
-  env:
-    GITHUB_TOKEN: ${{ inputs.github-token }}
-    GITHUB_REPO_OWNER: ${{ github.repository_owner }}
-    GITHUB_REPO_NAME: ${{ github.event.repository.name }}
-    DSM_HOST_WORKSPACE: ${{ github.workspace }}
-    DSM_TEAM_SLUGS: ${{ inputs.team-slugs }}
-    DSM_ISSUE_TYPE: ${{ inputs.issue-type }}
-    DSM_TEMPLATE_PATH: ${{ inputs.template-path }}
-    DSM_TIMEZONE: ${{ inputs.timezone }}
+  using: node24
+  main: dist/index.js
 
 branding:
   icon: calendar

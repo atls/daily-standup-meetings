@@ -1,0 +1,30 @@
+{
+  "name": "@atls/daily-standup-meetings",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GitHub Action that creates daily standup issues for organization teams",
+  "author": "TorinAsakura",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "yarn service build"
+  },
+  "lint-staged": {
+    "*.{yml,yaml,json,md}": "yarn format",
+    "*.{js,mjs,cjs,ts}": [
+      "yarn format",
+      "yarn lint"
+    ],
+    "*.ts": "yarn typecheck",
+    "*.test.ts": "yarn test unit"
+  },
+  "devDependencies": {
+    "@atls/raijin": "0.7.0",
+    "@types/node": "24.12.2",
+    "typescript": "5.9.3"
+  },
+  "packageManager": "yarn@4.14.1",
+  "engines": {
+    "node": ">=24 <25"
+  }
+}

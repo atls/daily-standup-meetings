@@ -15,11 +15,24 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
+      - uses: actions/setup-node@v6.0.0
+        with:
+          node-version: 24.20.0
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install
+        run: yarn install --immutable
+
+      - name: Check
+        run: yarn check
+
       - name: Test
-        run: cargo test --locked
+        run: yarn test unit --target src
 
-      - name: Check formatting
-        run: cargo fmt --all -- --check
+      - name: Build
+        run: yarn service build
 
-      - name: Build Action image
-        run: docker build --tag daily-standup-meetings:test .
+      - name: Verify committed bundle
+        run: git diff --exit-code -- dist
