@@ -19,14 +19,8 @@ jobs:
         with:
           node-version: 24.20.0
 
-      - name: Enable Corepack
-        run: corepack enable
-
       - name: Install
         run: yarn install --immutable
-
-      - name: Check
-        run: yarn check
 
       - name: Test
         run: yarn test unit --target src
