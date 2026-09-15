@@ -26,7 +26,7 @@ jobs:
         run: yarn test unit --target src
 
       - name: Build
-        run: yarn service build
+        run: yarn library build
 
-      - name: Verify committed bundle
+      - name: Verify committed build
         run: git diff --exit-code -- dist

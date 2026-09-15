@@ -1,8 +1,8 @@
 .idea
 .DS_Store
-node_modules
 .pnp.*
 /.yarn/install-state.gz
+/.yarn/unplugged/
 coverage
 target
 *.log
